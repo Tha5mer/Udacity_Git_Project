@@ -1,0 +1,103 @@
+Q1: 
+
+with t1 as (
+select title, c.category_id , c.name , i.inventory_id 
+from film f
+left join film_category fc on f.film_id = fc.film_id 
+left join category c on fc.category_id  = c.category_id 
+left join inventory i on i.film_id = f.film_id 
+group by 1,2,3,4
+	)
+	
+select title ,name , count(rental_id) rental_count
+from t1 
+left join rental r on t1.inventory_id = r.inventory_id
+where name in('Animation', 'Children', 'Classics', 'Comedy', 'Family' , 'Music')
+group by 1,2
+
+------------------------------------------------------
+Q2 :
+ 
+SELECT f.title ,c.name,f.rental_duration,
+ 	NTILE(4) over (order by f.rental_duration) AS standard_quartile
+from category c
+join film_category fc on c.category_id = fc.category_id
+join film f on fc.film_id = f.film_id
+where name in('Animation', 'Children', 'Classics', 'Comedy', 'Family' , 'Music')
+
+------------------------------------------------------
+Q3:
+
+with t1 as(
+SELECT c.name, f.rental_duration,
+  NTILE(4) over (order by f.rental_duration) as standard_quartile
+from category c
+join film_category fc on c.category_id = fc.category_id
+join film  f on fc.film_id = f.film_id
+)
+SELECT name, standard_quartile, count(standard_quartile)
+from  t1
+group by 1,2
+order by 1,2
+
+------------------------------------------------------
+set2 
+------------------------------------------------------
+Q1: 
+
+WITH t1 as(
+SELECT to_char(rental_date,'MM') as month, to_char(rental_date,'YYYY') as year, store_id, count(film_id) over (PARTITION BY to_char(rental_date,'MM') order by store_id) as count_rentals
+FROM rental r
+join inventory i on i.inventory_id = r.inventory_id
+)
+
+SELECT month , year, store_id, count(count_rentals) as count_rentals
+from t1
+group by 1, 2, 3
+order by 4 desc 
+
+------------------------------------------------------
+Q2: 
+WITH t1 as (
+	SELECT p.customer_id,CONCAT(first_name,' ',last_name) AS fullname, sum(p.amount) pay_amount
+form payment p
+join customer c
+  on p.customer_id = c.customer_id
+group by 1,
+         2
+order by 3 desc
+limit 10)
+
+SELECT extract(month from pa.payment_date)  pay_month,
+  t1.fullname,
+  count(t1.customer_id) as pay_countper_month,
+  sum(pa.amount) as pay_amount
+
+from t1
+join payment AS pa on t1.customer_id = pa.customer_id
+group by 1,2
+order by 1,2
+
+------------------------------------------------------
+
+Q3:
+with t1 as (
+	SELECT p.customer_id,CONCAT(first_name,' ',last_name) AS fullname, sum(p.amount) pay_amount
+from payment p
+join customer c
+  on p.customer_id = c.customer_id
+group by 1,
+         2
+order by 3 desc
+limit 10)
+
+SELECT extract(month from pa.payment_date)  pay_month,
+  t1.fullname,
+  count(t1.customer_id) as pay_countper_month,
+   sum(pa.amount) pay_amount,
+  pay_amount - (LAG(pay_amount, 1) OVER (ORDER BY fullname)) AS payment_difference
+from t1
+join payment AS pa on t1.customer_id = pa.customer_id
+where date_part('year' ,pa.payment_date) = '2007'
+group by 1,2,t1.pay_amount
+order by 1,5 desc
